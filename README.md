@@ -1,6 +1,6 @@
-# Comparative Analysis of LLM Biases: Case study HDB Policy Audit
+# Comparative Analysis of LLM Biases: Case study Singapore Public Housing Policy
 
-This project is a hands-on experiment to evaluate and quantify the inherent biases of leading Large Language Models (LLMs) when applied to a real-world, sensitive domain: Singapore's public housing policies.
+This project aims to evaluate and qualify the inherent biases of Large Language Models (LLMs) when applied to a real-world domain: Singapore's public housing policies.
 
 ### Key Goal
 
@@ -17,8 +17,8 @@ The system uses a Retrieval-Augmented Generation (RAG) pipeline to answer questi
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/marcfield23/ai-policy-audit-sg.git](https://github.com/marcfield23/ai-policy-audit-sg.git)
-    cd ai-policy-audit-sg
+    git clone [https://github.com/marcfield23/llm-ops-bias-eval.git](https://github.com/marcfield23/llm-ops-bias-eval.git)
+    cd llm-ops-bias-eval
     ```
 
 2.  **Set up the environment:**
