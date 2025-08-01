@@ -1,0 +1,102 @@
+# src/run_evaluation.py
+import os
+from dotenv import load_dotenv
+
+# --- LangChain components ---
+from langchain_community.document_loaders import DirectoryLoader, TextLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain.prompts import ChatPromptTemplate
+from langchain.schema.runnable import RunnablePassthrough
+from langchain.schema.output_parser import StrOutputParser
+
+# --- LLM Clients ---
+from langchain_groq import ChatGroq
+# CORRECTED: Import both the chat wrapper and the endpoint client
+from langchain_huggingface.chat_models import ChatHuggingFace
+from langchain_huggingface import HuggingFaceEndpoint
+
+# --- 1. Load Environment Variables ---
+load_dotenv()
+print("API Keys loaded.")
+
+# --- Constants ---
+DATA_PATH = "data/raw"
+DB_PATH = "vectorstores/db"
+EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
+
+# --- Define our models ---
+MODELS_TO_TEST = {
+    "USA (Llama 3)": "llama3-8b-8192",
+    "China (Qwen 2)": "Qwen/Qwen2-7B-Instruct",
+    "EU (Mistral 7B)": "mistralai/Mistral-7B-Instruct-v0.2"
+}
+
+def get_llm(model_id: str):
+    """
+    Returns an LLM instance based on the model ID.
+    """
+    print(f"Loading model: {model_id}")
+    if model_id == "llama3-8b-8192":
+        # Use Groq for the fastest Llama3 inference
+        return ChatGroq(model_name=model_id, temperature=0)
+    else:
+        # --- CORRECTED: Use the two-step process for Hugging Face ---
+        # Step 1: Create the low-level endpoint connection
+        llm_endpoint = HuggingFaceEndpoint(
+            repo_id=model_id,
+            temperature=0.01,
+            max_new_tokens=512,
+            huggingfacehub_api_token=os.environ.get("HUGGING_FACE_HUB_TOKEN")
+        )
+        # Step 2: Wrap the endpoint in the ChatHuggingFace class
+        return ChatHuggingFace(llm=llm_endpoint)
+
+def main():
+    """
+    Main function to set up the pipeline and run the evaluation.
+    """
+    if not os.path.exists(DB_PATH):
+        print("Vector store not found. Please run rag_pipeline.py once to create it.")
+        return
+
+    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    db = Chroma(persist_directory=DB_PATH, embedding_function=embeddings)
+    retriever = db.as_retriever()
+
+    prompt_template = """
+    Answer the question based only on the following context.
+    Provide a detailed answer. If you don't know the answer, just say that you don't know.
+
+    Context:
+    {context}
+
+    Question:
+    {question}
+    """
+    prompt = ChatPromptTemplate.from_template(prompt_template)
+
+    test_query = "How is the amount of the CPF Housing Grant calculated?"
+
+    for model_name, model_id in MODELS_TO_TEST.items():
+        print(f"\n--- Testing Model: {model_name} ({model_id}) ---")
+
+        llm = get_llm(model_id)
+
+        rag_chain = (
+            {"context": retriever, "question": RunnablePassthrough()}
+            | prompt
+            | llm
+            | StrOutputParser()
+        )
+
+        response = rag_chain.invoke(test_query)
+
+        print("\n--- LLM Final Answer ---")
+        print(f"Question: {test_query}")
+        print(f"Answer from {model_name}: {response}")
+        print("---------------------------------")
+
+if __name__ == "__main__":
+    main()
