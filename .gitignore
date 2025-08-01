@@ -1,0 +1,14 @@
+# Secret keys
+.env
+
+# Python virtual environment
+venv/
+
+# Vector database files
+vectorstores/
+
+# W&B local logs
+wandb/
+
+# macOS system files
+.DS_Store
