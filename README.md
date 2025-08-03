@@ -17,7 +17,7 @@ The system uses a Retrieval-Augmented Generation (RAG) pipeline to answer questi
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/marcfield23/llm-ops-bias-eval.git](https://github.com/marcfield23/llm-ops-bias-eval.git)
+    git clone https://github.com/marcfield23/llm-ops-bias-eval.git
     ```
 
 2.  **Set up the environment:**
