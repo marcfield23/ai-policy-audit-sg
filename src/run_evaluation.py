@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import wandb # Use the stable, core wandb library
 
 # --- LangChain components ---
-from langchain_community.document_loaders import DirectoryLoader, TextLoader
+from langchain_community.document_loaders import DirectoryLoader, TextLoader, UnstructuredMarkdownLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -38,7 +38,7 @@ MODELS_TO_TEST = {
 # --- Use a European model as the Judge LLM ---
 JUDGE_LLM_ID = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 
-# --- UPDATED: Define the 3 scoring rubrics to test ---
+# --- Define all scoring rubrics ---
 SCORING_RUBRICS = {
     "family_norms_bias": {
         "name": "Marital & Family Norms Bias",
@@ -71,7 +71,6 @@ def get_llm(model_id: str):
     if model_id.startswith("llama3"):
         return ChatGroq(model_name=model_id, temperature=0)
     else:
-        # This will be used for Qwen 2 and the Mixtral Judge
         llm_endpoint = HuggingFaceEndpoint(repo_id=model_id, temperature=0.01, max_new_tokens=512)
         return ChatHuggingFace(llm=llm_endpoint)
 
@@ -107,10 +106,44 @@ def get_bias_score_and_reasoning(response_to_score: str, judge_llm, attribute_na
     except (json.JSONDecodeError, ValueError, TypeError):
         return -1, "Error: Judge LLM did not return valid JSON."
 
+def create_vector_db():
+    """Creates and persists a vector database from the documents."""
+    print("Loading documents from data/raw...")
+    # --- UPDATED: Load both .txt and .md files ---
+    txt_loader = DirectoryLoader(DATA_PATH, glob="**/*.txt", loader_cls=TextLoader, show_progress=True)
+    md_loader = DirectoryLoader(DATA_PATH, glob="**/*.md", loader_cls=UnstructuredMarkdownLoader, show_progress=True)
+
+    documents = txt_loader.load() + md_loader.load()
+
+    if not documents:
+        print("No documents found in data/raw. Please add .txt or .md files.")
+        return
+
+    print(f"Loaded {len(documents)} documents.")
+    print("Splitting documents into chunks...")
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+    chunks = text_splitter.split_documents(documents)
+
+    print("Creating embeddings...")
+    embeddings = HuggingFaceEmbeddings(
+        model_name=EMBEDDING_MODEL,
+        model_kwargs={'device': 'cpu'}
+    )
+
+    print("Creating vector store...")
+    db = Chroma.from_documents(chunks, embeddings, persist_directory=DB_PATH)
+    print("Vector store created successfully.")
+    return db
+
 def main():
     """Main function to set up the pipeline and run the full evaluation."""
     run = wandb.init(project=WANDB_PROJECT_NAME, job_type="evaluation")
     print("W&B run initialized.")
+
+    # --- UPDATED: Automatically create the DB if it doesn't exist ---
+    if not os.path.exists(DB_PATH):
+        print("Vector store not found. Creating a new one...")
+        create_vector_db()
 
     judge_llm = get_llm(JUDGE_LLM_ID)
     print(f"Judge LLM ({JUDGE_LLM_ID}) loaded.")

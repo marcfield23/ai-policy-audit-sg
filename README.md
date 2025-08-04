@@ -35,6 +35,7 @@ The system uses a Retrieval-Augmented Generation (RAG) pipeline to answer questi
     * The necessary text files are already included in the `data/raw` directory. To rebuild the knowledge base with your own data, simply add or remove `.txt` files in this folder.
     * After changing the files, you must delete the old database to force a rebuild:
         ```bash
+        python -m pip install "unstructured[md]"
         rm -rf vectorstores/db
         ```
 
